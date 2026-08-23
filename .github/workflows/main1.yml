@@ -1,0 +1,73 @@
+# .github/workflows/rdp.yml
+name: Windows RDP with IP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+    timeout-minutes: 360
+
+    steps:
+    - name: تشغيل RDP
+      run: |
+        # تفعيل Remote Desktop
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        
+        # إضافة مستخدم
+        net user runneradmin P@ssw0rd! /add
+        net localgroup administrators runneradmin /add
+        
+        # منع النوم
+        powercfg -change -standby-timeout-ac 0
+        powercfg -change -hibernate-timeout-ac 0
+
+    - name: الحصول على IP العام
+      run: |
+        $publicIP = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
+        $rdpPort = 3389
+        
+        echo "========================================="
+        echo "🖥️  السيرفر جاهز!"
+        echo "========================================="
+        echo "📡 IP العام: $publicIP"
+        echo "🔌 المنفذ: $rdpPort"
+        echo "👤 المستخدم: runneradmin"
+        echo "🔑 كلمة المرور: P@ssw0rd!"
+        echo "========================================="
+        echo ""
+        echo "🔗 للاتصال استخدم:"
+        echo "mstsc /v:$publicIP:$rdpPort"
+        echo "========================================="
+        
+        # حفظ المعلومات في ملف
+        $info = @"
+        IP: $publicIP
+        Port: $rdpPort
+        User: runneradmin
+        Pass: P@ssw0rd!
+        "@
+        $info | Out-File -FilePath "$env:USERPROFILE\Desktop\rdp_info.txt"
+        
+        echo "✅ تم حفظ المعلومات في سطح المكتب: rdp_info.txt"
+
+    - name: إبقاء السيرفر شغال 6 ساعات
+      run: |
+        Write-Host "⏳ السيرفر شغال لمدة 6 ساعات..."
+        Write-Host "📋 معلومات الاتصال في ملف rdp_info.txt"
+        Write-Host ""
+        Write-Host "اتصل عن طريق:"
+        Write-Host "mstsc /v:IP:3389"
+        Write-Host ""
+        
+        # عرض IP كل دقيقة
+        for ($i = 0; $i -lt 360; $i++) {
+            $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
+            $remaining = [math]::Round((360 - $i) / 60, 1)
+            Write-Host "🟢 [$remaining ساعة متبقية] IP: $ip :3389"
+            Start-Sleep -Seconds 60
+        }
+      shell: pwsh
