@@ -1,0 +1,39 @@
+# .github/workflows/rdp.yml
+name: Windows RDP via Cloudflare Tunnel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+    timeout-minutes: 360  # السيرفر يشتغل لمدة 6 ساعات كحد أقصى
+
+    steps:
+    - name: تشغيل RDP وتثبيت Cloudflare Tunnel
+      run: |
+        # 1. تفعيل Remote Desktop
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        
+        # 2. تحميل وتثبيت Cloudflare Tunnel (أسرع وأسهل من ngrok)
+        Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile "$env:USERPROFILE\cloudflared.exe"
+        
+        # 3. تشغيل النفق (رابط الاتصال راح يظهر بالسجلات)
+        Start-Process -NoNewWindow -FilePath "$env:USERPROFILE\cloudflared.exe" -ArgumentList "tunnel --url localhost:3389 --protocol http2"
+        
+        # 4. طباعة بيانات الاتصال
+        Write-Host "=========================================" -ForegroundColor Green
+        Write-Host "🖥️  السيرفر جاهز للاتصال!" -ForegroundColor Green
+        Write-Host "👤 اسم المستخدم: runneradmin" -ForegroundColor Cyan
+        Write-Host "🔑 كلمة المرور: P@ssw0rd!" -ForegroundColor Cyan
+        Write-Host "📡 الرابط: ابحث في السجلات عن 'https://xxxxx.trycloudflare.com'" -ForegroundColor Yellow
+        Write-Host "=========================================" -ForegroundColor Green
+        
+        # 5. حافظ على الجلسة نشطة لمدة 6 ساعات
+        for ($i = 0; $i -lt 360; $i++) {
+          Write-Host "⏳ السيرفر شغال... متبقي $([math]::Round((360 - $i) / 60, 1)) ساعة"
+          Start-Sleep -Seconds 60
+        }
+      shell: pwsh
